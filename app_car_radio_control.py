@@ -8,7 +8,7 @@ class CarRadioController:
         self.PIN_A = 22      
         self.PIN_B = 27
         self.PULSE_DELAY = 0.08
-        self.TURN_DELAY = 0.1
+        self.TURN_DELAY = 0.01
         
         self.MENU_ITEMS = ["Bass", "Mid", "Treble", "Balance", "Fader"]
         self.current_menu_index = 0
@@ -38,7 +38,7 @@ class CarRadioController:
             self._pulse_state()
             self._update_current_menu_index()
             
-    def _step_quadrature(self, direction, steps, delay=0.1):
+    def _step_quadrature(self, direction, steps, delay=0.005):
         for _ in range(abs(steps)):
             if direction == "increase":
                 print(f"Increaaaaaaasing value...")
@@ -100,9 +100,11 @@ class RadioApp(ctk.CTk):
         self.status_label.pack(pady=10)
 
         self.slider = ctk.CTkSlider(self, from_=-7, to=7, number_of_steps=14, 
-                                    command=self.slider_event)
+                                    command=self.update_label_only)
         self.slider.set(0)
         self.slider.pack(pady=20, padx=50, fill="x")
+        
+        self.slider.bind("<ButtonRelease-1>", self.send_to_hardware)
 
         self.val_display = ctk.CTkLabel(self, text="Valoare: 0", font=("Roboto", 14))
         self.val_display.pack()
@@ -118,11 +120,16 @@ class RadioApp(ctk.CTk):
         self.slider.set(self.radio.values[item])
         self.val_display.configure(text=f"Valoare: {int(self.radio.values[item])}")
 
-    def slider_event(self, value):
+    def update_label_only(self, value):
+        self.val_display.configure(text=f"Valoare: {int(value)}")
+
+    def send_to_hardware(self, event):
         self.last_interaction = time.time()
-        val = int(value)
-        self.val_display.configure(text=f"Valoare: {val}")
-        self.radio.set_value(self.selected_item.get(), val)
+        val = int(self.slider.get())
+        target = self.selected_item.get()
+
+        if val != self.radio.values[target]:
+            self.radio.set_value(target, val)
 
     def check_idle(self):
         if time.time() - self.last_interaction >= 10:
