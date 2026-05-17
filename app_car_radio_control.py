@@ -8,8 +8,12 @@ class CarRadioController:
         self.PIN_A = 22      
         self.PIN_B = 27
         self.PULSE_DELAY = 0.08
-        self.TURN_DELAY = 0.01
-        
+        self.TURN_DELAY = 0.05
+        #self.x = 0
+        self.A = GPIO.HIGH
+        #self.A_old = True
+        self.B = GPIO.HIGH
+        #self.B_old = True
         self.MENU_ITEMS = ["Bass", "Mid", "Treble", "Balance", "Fader"]
         self.current_menu_index = 0
         self.values = {item: 0 for item in self.MENU_ITEMS}
@@ -37,13 +41,67 @@ class CarRadioController:
         while self.MENU_ITEMS[self.current_menu_index] != target_name:
             self._pulse_state()
             self._update_current_menu_index()
-            
-    def _step_quadrature(self, direction, steps, delay=0.005):
+    
+    '''def gpio_conv(self, value):
+        if (value == True):
+            return GPIO.HIcGH
+        else:
+            return GPIO.LOW'''
+        
+    def toggle_decrement(self, delay=0.005):
+        print("TOGGLE decrement PIN A&B")
+        print(f"INITIAL PIN A = {self.A}")
+        print(f"INITIAL PIN B = {self.B}")
+        self.A = GPIO.LOW if self.A == GPIO.HIGH else GPIO.HIGH
+        self.B = GPIO.LOW if self.B == GPIO.HIGH else GPIO.HIGH
+        print(f"AFTER TOGGLE PIN A = {self.A}")
+        print(f"AFTER TOGGLE PIN B = {self.B}")
+        
+        GPIO.output(self.PIN_A, self.A)
+        time.sleep(delay)
+        GPIO.output(self.PIN_B, self.B)
+        time.sleep(delay)
+        
+    def toggle_increment(self, delay=0.005):
+        print("TOGGLE increment PIN A&B")
+        print(f"INITIAL PIN A = {self.A}")
+        print(f"INITIAL PIN B = {self.B}")
+        self.A = GPIO.LOW if self.A == GPIO.HIGH else GPIO.HIGH
+        self.B = GPIO.LOW if self.B == GPIO.HIGH else GPIO.HIGH
+        print(f"AFTER TOGGLE PIN A = {self.A}")
+        print(f"AFTER TOGGLE PIN B = {self.B}")
+        
+        GPIO.output(self.PIN_B, self.B)
+        time.sleep(delay)
+        GPIO.output(self.PIN_A, self.A)
+        time.sleep(delay)
+        
+    '''def _step_quadrature(self, direction, steps, delay=0.05):
         for _ in range(abs(steps)):
+            self.x += 1
+            print(self.x)
+            if direction == "increase":
+                if (self.A_now != self.A_old):
+                    self.A_old = self.A_now
+                    self.B_old = self.B_now
+                    self.A_now = not(self.A_now)
+                else:
+                    self.B_old = self.B_now
+                    self.A_old = self.A_now
+                    self.B_now = not(self.B_now)
+                
+                GPIO.output(self.PIN_A, self.gpio_conv(self.A_now))
+                GPIO.output(self.PIN_B, self.gpio_conv(self.B_now))
+                
+                #self.A_old = self.A_now
+                #self.B_old = self.B_now
+            
             if direction == "increase":
                 print(f"Increaaaaaaasing value...")
+                self.B_now = not(self.B_now)
                 GPIO.output(self.PIN_B, GPIO.LOW)
                 time.sleep(delay)
+                self.A_now = not(self.A_now)
                 GPIO.output(self.PIN_A, GPIO.LOW)
                 time.sleep(delay)
                 GPIO.output(self.PIN_B, GPIO.HIGH)
@@ -53,22 +111,25 @@ class CarRadioController:
                 print(f"Decreasing value...")
                 GPIO.output(self.PIN_A, GPIO.LOW)
                 time.sleep(delay)
-                GPIO.output(self.PIN_B, GPIO.LOW)
+                #GPIO.output(self.PIN_B, GPIO.LOW)
                 time.sleep(delay)
                 GPIO.output(self.PIN_A, GPIO.HIGH)
                 time.sleep(delay)
                 GPIO.output(self.PIN_B, GPIO.HIGH)
-            time.sleep(delay)
+            time.sleep(delay)'''
+            
 
     def set_value(self, target_name, new_value):
         diff = new_value - self.values[target_name]
-        
         if diff > 0:
-            self._step_quadrature("increase", diff, self.TURN_DELAY)
+            self.toggle_increment()
+            #self._step_quadrature("increase", diff, self.TURN_DELAY)
         elif diff < 0:
-            self._step_quadrature("decrease", diff, self.TURN_DELAY)
+            self.toggle_decrement()
+            #self._step_quadrature("decrease", diff, self.TURN_DELAY)
             
         self.values[target_name] = new_value
+
 
 class RadioApp(ctk.CTk):
     def __init__(self, controller):
@@ -104,7 +165,7 @@ class RadioApp(ctk.CTk):
         self.slider.set(0)
         self.slider.pack(pady=20, padx=50, fill="x")
         
-        self.slider.bind("<ButtonRelease-1>", self.send_to_hardware)
+        self.slider.bind("<ButtonRelease-1>", self.change_value)
 
         self.val_display = ctk.CTkLabel(self, text="Valoare: 0", font=("Roboto", 14))
         self.val_display.pack()
@@ -123,13 +184,17 @@ class RadioApp(ctk.CTk):
     def update_label_only(self, value):
         self.val_display.configure(text=f"Valoare: {int(value)}")
 
-    def send_to_hardware(self, event):
+    def change_value(self, event):
+        self.check_idle()
         self.last_interaction = time.time()
         val = int(self.slider.get())
         target = self.selected_item.get()
 
         if val != self.radio.values[target]:
             self.radio.set_value(target, val)
+        
+        print(val)
+        print(target)
 
     def check_idle(self):
         if time.time() - self.last_interaction >= 10:
@@ -145,3 +210,4 @@ if __name__ == "__main__":
         pass
     finally:
         GPIO.cleanup()
+
